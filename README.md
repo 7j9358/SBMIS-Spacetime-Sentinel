@@ -30,3 +30,10 @@ This project is licensed under the GNU General Public License v3.0. Any use or d
 ----------------------------------------------------------------------------------
 
 Technical Note: FFT Frequency LockingThe SBMIS algorithm utilizes Fast Fourier Transform (FFT) to monitor the $B_z$ magnetic component. While standard models view high-frequency spikes as noise, SBMIS identifies these as Topological Resonances.The 7.55 nT Plateau: This represents a "Saturated Harmonic State" where the local spacetime fabric can no longer sustain additional energy flux, triggering a mandatory branch discharge (観點二：編時保護).Golden Ratio Scaling: The system filters for resonance at $\Phi$ (1.618) multiples, which Kwentin identifies as the "natural tuning frequency" for spacetime opening.
+
+
+
+----------------------------------------------------------------------------------
+
+"This observation is distinct from standard Sensor Saturation; it represents a non-linear stability point at 7.55 nT synchronized with phase-lead induction (-2.214 rad). Classical MHD models fail to predict this sequence."
+(這項觀測與標準儀器飽和不同；它代表了在 7.55 nT 時，與相位超前誘導同步發生的非線性穩定點。傳統模型無法預測此序列。)
