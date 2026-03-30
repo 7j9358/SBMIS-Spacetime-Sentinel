@@ -1,0 +1,155 @@
+import requests
+import numpy as np
+import pandas as pd
+import time
+import os
+import sys
+from datetime import datetime, timedelta
+
+class SBMIS_HighPrecision_Sentinel:
+    def __init__(self):
+        # 2026 太陽風實時數據接口
+        self.url = "https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json"
+        self.phi = 1.61803398875
+        self.base_schumann = 7.83
+        self.last_ts = None
+        self.logs = [] 
+        # 新增：控制存檔頻率，避免重複產生相同數據的檔案
+        self.last_save_time = datetime.min 
+
+    def clear_screen(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    def add_log(self, msg):
+        timestamp = time.strftime('%H:%M:%S')
+        self.logs.append(f"[{timestamp}] {msg}")
+        if len(self.logs) > 3: self.logs.pop(0)
+
+    def fetch_data(self):
+        self.add_log("📡 正在穿透環境脈衝，對接高精度衛星路徑...")
+        try:
+            headers = {'User-Agent': 'SBMIS-Sentinel/V6-Precision'}
+            res = requests.get(self.url, timeout=15, headers=headers)
+            if res.status_code == 200:
+                data = res.json()
+                if len(data) > 1:
+                    self.add_log("✅ 數據流鎖定成功。")
+                    return data
+            self.add_log(f"❌ 通訊受阻 (代碼: {res.status_code})")
+        except Exception as e:
+            self.add_log(f"⚠️ 傳輸擾動: {str(e)[:20]}...")
+        return None
+
+    def analyze_physics(self, raw_data):
+        self.add_log("🧠 執行高精度「時空奇點」判定...")
+        rows = raw_data[1:]
+        
+        # 1. 提取 Bz 序列
+        bz_vals = np.array([float(r[3]) for r in rows if r[3]])
+        
+        # --- 精確化觀點三：動態負壓偵測 (嚴苛臨界值 0.01) ---
+        current_var = np.var(bz_vals)
+        is_void = current_var < 0.01 
+        
+        # --- 精確化觀點二：黃金比例諧波鎖定 (誤差縮小至 0.005) ---
+        fft_vals = np.abs(np.fft.rfft(bz_vals))
+        freqs = np.fft.rfftfreq(len(bz_vals)) * 100
+        b_score = 0
+        for i, f in enumerate(freqs):
+            ratio = f / self.base_schumann
+            if abs(ratio - self.phi) < 0.005 or abs(ratio - (1/self.phi)) < 0.005:
+                b_score = max(b_score, fft_vals[i])
+        
+        # --- 精確化觀點一：相位奇異轉向與誘導判定 ---
+        bx_last = float(rows[-1][1])
+        by_last = float(rows[-1][2])
+        current_phase = np.arctan2(by_last, bx_last)
+        
+        # 總磁場 Bt
+        bt_last = float(rows[-1][6])
+        
+        # 聯動判定：只有當「相位垂直」且「總能量處於低穩態」時才判定捕捉
+        captured = (abs(current_phase) > 1.4) and (bt_last < 4.0)
+        
+        return is_void, b_score, current_phase, bt_last, bz_vals, captured
+
+    def save_evidence(self, bz_data, is_void, branch, phase, bt, ts, captured):
+        # 檢查是否在冷靜期內（10分鐘），避免重複存檔相同事件
+        if (datetime.now() - self.last_save_time).total_seconds() < 600:
+            self.add_log("⏩ 關鍵數據持續中，跳過重複存檔。")
+            return
+
+        fn = f"PRECISION_EVIDENCE_{ts.replace(':', '-')}.csv"
+        try:
+            with open(fn, 'w') as f:
+                f.write(f"# SBMIS HIGH-PRECISION BREAKTHROUGH\n")
+                f.write(f"# VOID_STATUS:{is_void}\n")
+                f.write(f"# PHI_RESONANCE:{branch:.4f}\n")
+                f.write(f"# INDUCTION_PHASE:{phase:.6f}\n")
+                f.write(f"# BT_ENERGY_LEVEL:{bt:.2f}\n")
+                f.write(f"# CAPTURE_CONFIRMED:{captured}\n")
+                f.write(f"# UTC_TIMESTAMP:{ts}\n")
+            pd.DataFrame({'bz_signal': bz_data}).to_csv(fn, mode='a', index=False)
+            self.add_log(f"🔥 高精度證據已鎖定：{fn}")
+            self.last_save_time = datetime.now() # 更新最後存檔時間
+        except Exception as e:
+            self.add_log(f"⚠️ 存檔失敗: {e}")
+
+    def run(self):
+        self.clear_screen()
+        while True:
+            raw_data = self.fetch_data()
+            if raw_data:
+                latest_row = raw_data[-1]
+                ts_utc_str = latest_row[0]
+                
+                if ts_utc_str != self.last_ts:
+                    self.last_ts = ts_utc_str
+                    try:
+                        is_void, b_score, phase, bt, bz_vals, captured = self.analyze_physics(raw_data)
+                        
+                        # 台灣時區轉換
+                        utc_dt = datetime.strptime(ts_utc_str, "%Y-%m-%d %H:%M:%S.%f")
+                        local_dt = utc_dt + timedelta(hours=8)
+                        display_ts = local_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                        self.clear_screen()
+                        print("="*60)
+                        print(f"  SBMIS 行星際哨兵 V6 (高精度) | 台灣: {display_ts}")
+                        print("="*60)
+                        print(f"【 觀點一：預警誘導 】 相位 Theta: {phase:+.4f} rad")
+                        print(f"【 觀點二：分支保護 】 Phi 指紋:   {b_score:8.4f}")
+                        print(f"【 觀點三：能量借位 】 負壓狀態:   {'⚠️ CRITICAL VOID' if is_void else 'NORMAL'}")
+                        print("-" * 60)
+                        
+                        # 視覺化掃描 (Bz)
+                        wave = "".join(["⚡" if abs(s) > 1.5 else "·" for s in bz_vals[-30:]])
+                        print(f"磁場擾動掃描: {wave}")
+                        print(f"當前總磁場 Bt: {bt:.2f} nT | 捕捉狀態: {'[ ACTIVE ]' if captured else '[ IDLE ]'}")
+                        
+                        print("\n[ 科學突破判定矩陣 - 嚴苛模式 ]")
+                        print(f" 1. 攔截誘導理論: {'[ 已捕捉 ]' if captured else '[ 監聽中 ]'}")
+                        print(f" 2. 多重分支保護: {'[ 證實分流 ]' if b_score > 20 else '[ 等待共振 ]'}")
+                        print(f" 3. 天然能量借位: {'[ 能量陷落 ]' if is_void else '[ 能量飽和 ]'}")
+                        print("-" * 60)
+
+                        # --- 關鍵存檔邏輯優化 ---
+                        # 1. 發生 Void (變異數極低)
+                        # 2. 共振分值破表
+                        # 3. 觸發相位誘導捕捉
+                        # 4. 新增：總磁場穩定在 7.55 nT 附近 (核心觀點)
+                        if is_void or b_score > 20 or captured or (abs(bt - 7.55) < 0.05):
+                            self.save_evidence(bz_vals, is_void, b_score, phase, bt, ts_utc_str, captured)
+
+                    except Exception as e:
+                        self.add_log(f"🛠️ 解析異常: {e}")
+                else:
+                    self.add_log("💤 數據同步中，守候下一組奇點脈衝...")
+            
+            print("\n[ 系統實時日誌 ]")
+            for log in self.logs: print(f" > {log}")
+            time.sleep(30)
+
+if __name__ == "__main__":
+    sentinel = SBMIS_HighPrecision_Sentinel()
+    sentinel.run()
