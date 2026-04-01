@@ -3,6 +3,9 @@
 **Theory & Observation by Kwentin**
 **Implementation Assistant: Google Gemini (AI)**
 
+[Read the Technical Report on Academia.edu]
+https://www.academia.edu/165447994/Empirical_Study_on_Non_Natural_Geomagnetic_Dip_and_Golden_Ratio_Phase_Locking_Evidence_for_Spacetime_Topology_Induction
+
 Latest Status (2026-03-31): > Sentinel V6.1 Live. Multiple 7.55 nT VOID states captured. $\theta$ phase resonance at 2.41 rad verified. Check Mission_SOP.md for the full navigation blueprint.
 
 ## 📜 Project Overview / 專案概述
